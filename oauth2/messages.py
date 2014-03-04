@@ -30,42 +30,46 @@ class AuthorizationErrorResponse(object):
 		self.state = state
 
 # Access token model
-class AccessTokenGrantType(object):
+class AccessTokenRequestType(object):
 	def __init__(self, name: str):
 		self.name = name
 
-AUTHCODE_GRANT = AccessTokenGrantType('authorization_code')
-ROCREDS_GRANT = AccessTokenGrantType('password')
-CLICREDS_GRANT = AccessTokenGrantType('client_credentials')
-REFRESH_GRANT = AccessTokenGrantType('refresh_token')
+AUTHCODE_REQTYPE = AccessTokenRequestType('authorization_code')
+ROCREDS_REQTYPE = AccessTokenRequestType('password')
+CLICREDS_REQTYPE = AccessTokenRequestType('client_credentials')
+REFRESH_REQTYPE = AccessTokenRequestType('refresh_token')
 
-class AccessTokenGrantParams(object):
-	pass
+class AccessTokenRequestParam(object):
+	def __init__(self, key, value):
+		self.key = key
+		self.value = value
 
-class Code(AccessTokenGrantParams):
-	def __init__(self, code, redirect_uri, client_id):
-		self.code = code
-		self.redirect_uri = redirect_uri
-		self.client_id = client_id
+def code_reqparams(code, redirect_uri, client_id):
+	return [
+		AccessTokenRequestParam('code', code),
+		AccessTokenRequestParam('redirect_uri', redirect_uri),
+		AccessTokenRequestParam('client_id', client_id)
+		]
 
-class ResourceOwnerPasswordCredential(AccessTokenGrantParams):
-	def __init__(self, username, password, scope):
-		self.username = username
-		self.password = password
-		self.scope = scope
+def resource_owner_pwd_creds_reqparams(username, password, scope):
+	return [
+		AccessTokenRequestParam('username', username),
+		AccessTokenRequestParam('password', password),
+		AccessTokenRequestParam('scope', scope)
+		]
 
-class ClientCredentials(AccessTokenGrantParams):
-	def __init__(self, scope):
-		self.scope = scope
+def client_credentials_reqparams(scope):
+	return [AccessTokenRequestParam('scope', scope)]
 
-class Refresh(AccessTokenGrantParams):
-	def __init__(self, refresh_token, scope):
-		self.refresh_token = refresh_token
-		self.scope = scope
+def refresh_reqparams(refresh_token, scope):
+	return [
+		AccessTokenRequestParam('refresh_token', refresh_token),
+		AccessTokenRequestParam('scope', scope)
+		]
 
-class AccessTokenGrant(object):
-	def __init__(self, grant_type: AccessTokenGrantType, params: AccessTokenGrantParams):
-		self.grant_type = grant_type
+class AccessTokenRequest(object):
+	def __init__(self, request_type: AccessTokenRequestType, params: [AccessTokenRequestParam]):
+		self.request_type = request_type
 		self.params = params
 
 class AccessToken(object):
@@ -75,25 +79,35 @@ class AccessToken(object):
 		self.expires_in = expires_in
 		self.expires_on = 1#time!!!
 
-class AccessTokenRefresh(object):
-	def __init__(refresh_token: str, access_token: AccessToken):
-		self.refresh_token = refresh_token
-		self.access_token = access_token
+class AccessTokenParam(object):
+	def __init__(self, key, value):
+		self.key = key
+		self.value = value
 
-class AccessTokenState(object):
-	def __init__(state: str, scope: list, access_token: AccessToken):
-		self.state = state
-		self.scope = scope
-		self.access_token = access_token
+def refresh_tokenparams(refresh_token):
+	return [AccessTokenParam('refresh_token', refresh_token)]
 
-class AccessTokenGrantError(object):
+def state_tokenparams(state, scope):
+	return [AccessTokenParam('state', state), AccessTokenParam('scope', scope)]
+
+
+class AccessTokenError(object):
 	def __init__(self, code: str, description: str, uri: str):
 		self.code = code
 		self.description = description
 		self.uri = uri
 
-class AccessTokenGrantErrorState(object):
-	def __init__(self, state, error: AccessTokenGrantError):
-		self.state = state
+class AccessTokenErrorParam(object):
+	def __init__(self, key, value):
+		self.key = key
+		self.value = value
+
+def state_errorparams(state):
+	return [AccessTokenErrorParam('state', state)]
+
+class AcccessTokenResponse(object):
+	def __init__(self, success: bool, error: AccessTokenError, access_token: AccessToken):
+		self.success = success
 		self.error = error
+		self.access_token = access_token
 
