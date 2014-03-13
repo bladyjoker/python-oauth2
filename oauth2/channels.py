@@ -2,6 +2,7 @@ import oauth2.http as http
 import oauth2.messages as messages
 
 import urllib.parse
+from urllib.parse import quote
 import json
 
 # Access Token		
@@ -11,16 +12,41 @@ class AccessTokenChannel(object):
 	def send(self, access_token_request: messages.AccessTokenRequest) -> messages.AccessToken:
 		return self.send_impl(access_token_request)
 
+def http_entity_from_tokreq(req: messages.AccessTokenRequest) -> bytes:
+	entity = list()
+	for key,value in req.params:
+		if type(value) is list:
+			entity.append('{0}={1}'.format(
+					quote(key), 
+					quote(' '.join(value))
+					)
+				)
+		else:
+			entity.append('{0}={1}'.format(
+					quote(key), 
+					quote(value)
+					)
+				)				
+
+	entity.append('grant_type={0}'.format(quote(str(req.request_type))))
+	return bytes('&'.join(entity), 'UTF-8')
+
 def access_token_channel(token_endpoint: str,
 		client_authenticator: http.HTTPRequestProcessor,
 		http_channel: http.HTTPChannel):
+	def error_from_dict(error: dict):
+		return messages.AccessTokenError(
+				error['error'],
+				error['error_description'],
+				error.get('error_uri', None)
+			)
+
+	
 	def send(access_token_req: messages.AccessTokenRequest):
-		grant_entity = {param.key:param.value for param in access_token_req.params}
-		grant_entity['grant_type'] = access_token_req.request_type.name
 		http_req = http.HTTPRequest(method='POST',
 			uri=token_endpoint,
 			headers={'Content-Type': 'application/x-www-form-urlencoded'},
-			entity=urllib.parse.urlencode(grant_entity)
+			entity=http_entity_from_tokreq(access_token_req)
 		)
 
 		http_resp = http_channel.send(client_authenticator.process(http_req))
@@ -41,12 +67,12 @@ def access_token_channel(token_endpoint: str,
 						elem[0] in ['access_token','token_type','expires_in']
 					)
 			
-			return (True, messages.AccessToken(**dict(token)), [messages.AccessTokenParam(*p) for p in params])
+			return (messages.AccessToken(**dict(token)), [messages.AccessTokenParam(*p) for p in params])
 		elif http_resp.status == '400':
 			error,params = partition(
 					json.loads(str(http_resp.entity, 'UTF-8')).items(), 
 					lambda elem: 
 						elem[0] in ['error', 'error_description', 'error_uri']
 					)
-			return (False, messages.AccessTokenError(**dict(error)), [messages.AccessTokenErrorParam(*p) for p in params])
+			return (error_from_dict(dict(error)), [messages.AccessTokenErrorParam(*p) for p in params])
 	return AccessTokenChannel(send)
